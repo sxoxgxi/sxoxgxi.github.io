@@ -75,6 +75,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const activitiesContainer = document.getElementById(
         "activities-container",
       );
+      const presenceSection = document.getElementById("presence-section");
       const activitiesList = document.getElementById("activities-list");
 
       if (userActivities.length > 0 && activitiesContainer && activitiesList) {
@@ -158,7 +159,7 @@ document.addEventListener("DOMContentLoaded", () => {
           activitiesList.appendChild(card);
         });
       } else {
-        if (activitiesContainer) activitiesContainer.classList.add("hidden");
+        if (activitiesContainer) presenceSection.classList.add("hidden");
       }
 
       setInterval(() => {
