@@ -93,7 +93,7 @@ document.addEventListener("DOMContentLoaded", () => {
             "activity-card bg-[var(--overlay)] p-4 rounded-lg flex items-center space-x-3";
 
           const icon = document.createElement("img");
-          icon.className = "size-24 rounded-lg";
+          icon.className = "sm:size-24 size-16 rounded-lg";
           icon.style.display = "none";
 
           if (activity.assets?.large_image) {
