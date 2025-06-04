@@ -1,0 +1,47 @@
+:root {
+  --base: #191724;
+  --surface: #1f1d2e;
+  --overlay: #26233a;
+  --online: #77dd77;
+  --dnd: #ff6961;
+  --idle: #fdfd96;
+  --offline: #cfcfc4;
+  --text: #e0def4;
+  --love: #eb6f92;
+  --gold: #f6c177;
+  --pine: #31748f;
+  --foam: #9ccfd8;
+  --iris: #c4a7e7;
+}
+
+.activity-card {
+  transition: background-color 0.3s ease;
+}
+.activity-card:hover {
+  background-color: var(--surface);
+}
+body {
+  background-color: var(--base);
+  color: var(--text);
+}
+.size-15 {
+  width: 60px;
+  height: 60px;
+}
+.card {
+  background-color: var(--surface);
+  border: 1px solid var(--overlay);
+}
+a:hover {
+  color: var(--foam);
+}
+.status-indicator {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid var(--surface);
+  background-color: var(--offline);
+}
