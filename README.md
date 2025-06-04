@@ -1,3 +1,7 @@
+## Preview
+
+[![Preview](./media/site_ss.png)](https://sxoxgxi.github.io/)
+
 ## **To-Do: Discord Independent Presence**
 
 ### Part 1: Setup Backend
