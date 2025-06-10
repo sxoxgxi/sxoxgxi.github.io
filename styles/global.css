@@ -46,6 +46,78 @@ a:hover {
   background-color: var(--offline);
 }
 
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+a:focus-visible,
+button:focus-visible {
+  outline: 2px solid var(--iris);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.status-indicator {
+  transition: opacity 0.3s ease;
+}
+
+.wallpaper-card {
+  position: relative;
+  width: 100%;
+  height: 0;
+  padding-bottom: 56.25%;
+  overflow: hidden;
+  border-radius: 0.5rem;
+  transition: transform 0.3s ease;
+  cursor: pointer;
+}
+.wallpaper-card:hover {
+  transform: scale(1.02);
+}
+.wallpaper-card img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.wallpaper-card .overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  padding: 1rem;
+  text-align: center;
+}
+.wallpaper-card:hover .overlay {
+  opacity: 1;
+}
+.wallpaper-card .overlay p {
+  color: var(--foam);
+  font-size: clamp(0.875rem, 2vw, 1.25rem);
+  margin-bottom: 1rem;
+}
+.wallpaper-card .overlay a {
+  color: var(--love);
+  font-size: clamp(0.75rem, 1.5vw, 1rem);
+  text-decoration: none;
+}
+.wallpaper-card .overlay a:hover {
+  text-decoration: underline;
+}
+
 @media (max-width: 640px) {
   .size-15 {
     width: 48px;
@@ -59,5 +131,8 @@ a:hover {
 
   .card {
     padding: 1.25rem;
+  }
+  .wallpaper-card .overlay {
+    opacity: 1 !important;
   }
 }
