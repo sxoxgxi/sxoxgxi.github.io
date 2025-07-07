@@ -5,18 +5,21 @@ fetch(baseURL + "metadata.json")
   .then((data) => {
     const container = document.querySelector("main");
 
-    Object.values(data).forEach(({ name, description, file_path }) => {
-      const fileName = file_path.split("/").pop();
+    Object.values(data).forEach((item) => {
+      const fileName = item.file_path.split("/").pop();
+
+      const previewImage = baseURL + item.web_preview.path;
+      const downloadLink = baseURL + "sources/" + fileName;
 
       const card = document.createElement("div");
       card.className = "wallpaper-card";
       card.innerHTML = `
-              <img src="${baseURL + "sources/" + fileName}" alt="${name}" loading="lazy" />
-              <div class="overlay">
-                <p>${description}</p>
-                <a href="${baseURL + "sources/" + fileName}" download>Download</a>
-              </div>
-            `;
+        <img src="${previewImage}" alt="${item.name}" loading="lazy" />
+        <div class="overlay">
+          <p>${item.description}</p>
+          <a href="${downloadLink}" download>Download</a>
+        </div>
+      `;
       container.appendChild(card);
     });
   });
