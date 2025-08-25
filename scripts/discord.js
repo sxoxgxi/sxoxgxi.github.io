@@ -5,9 +5,11 @@ const CONFIG = {
     DISCORD_STATUS: 120 * 1000,
     ACTIVITY_TIME: 30 * 1000,
     ELAPSED_TIME: 1 * 1000,
+    LYRICS_SYNC: 500,
   },
   API_ENDPOINTS: {
     LANYARD: "https://api.lanyard.rest/v1/users/",
+    LRCLIB: "https://lrclib.net/api/get",
   },
   MAX_RETRY_DELAY: 300 * 1000,
 };
@@ -15,6 +17,8 @@ const CONFIG = {
 // State management
 let retryDelay = CONFIG.UPDATE_INTERVALS.DISCORD_STATUS;
 let intervals = [];
+let currentLyrics = null;
+let currentSpotifyActivity = null;
 
 document.addEventListener("DOMContentLoaded", () => {
   initializeDiscordIntegration();
@@ -145,7 +149,6 @@ function updateUserAvatar(userData) {
   if (avatarImg) {
     avatarImg.src = avatarUrl;
     avatarImg.onerror = () => {
-      // Fallback to GitHub avatar if Discord avatar fails
       avatarImg.src = "https://github.com/sxoxgxi.png";
     };
   }
@@ -201,10 +204,8 @@ function updateActivitiesList(activities) {
     activitiesContainer.classList.remove("hidden");
     if (presenceSection) presenceSection.classList.remove("hidden");
 
-    // Clear existing activities
     activitiesList.innerHTML = "";
 
-    // Sort activities by start time (most recent first)
     displayActivities.sort((a, b) => {
       const aTime = a.timestamps?.start || 0;
       const bTime = b.timestamps?.start || 0;
@@ -216,31 +217,330 @@ function updateActivitiesList(activities) {
       activitiesList.appendChild(card);
     });
 
+    // Check for Spotify activity and fetch lyrics
+    const spotifyActivity = displayActivities.find(
+      (activity) => activity.name === "Spotify",
+    );
+    if (spotifyActivity && spotifyActivity !== currentSpotifyActivity) {
+      currentSpotifyActivity = spotifyActivity;
+      fetchLyrics(spotifyActivity);
+    } else if (!spotifyActivity) {
+      currentSpotifyActivity = null;
+      currentLyrics = null;
+      hideLyrics();
+    }
+
     // Start elapsed time updates
     startElapsedTimeUpdates();
   } else {
     activitiesContainer.classList.add("hidden");
+    currentSpotifyActivity = null;
+    currentLyrics = null;
+    hideLyrics();
   }
 }
 
-// Create activity card element
+// Fetch lyrics from LRCLib API
+async function fetchLyrics(spotifyActivity) {
+  if (!spotifyActivity.state || !spotifyActivity.details) return;
+
+  const activityId = `spotify-${spotifyActivity.timestamps.start}`;
+  const artistName = encodeURIComponent(spotifyActivity.state);
+  const trackName = encodeURIComponent(spotifyActivity.details);
+  const url = `${CONFIG.API_ENDPOINTS.LRCLIB}?artist_name=${artistName}&track_name=${trackName}`;
+
+  try {
+    const response = await fetch(url, {
+      headers: {
+        Accept: "application/json",
+      },
+      signal: AbortSignal.timeout(10000),
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    const lyricsData = await response.json();
+
+    if (lyricsData.syncedLyrics) {
+      currentLyrics = parseSyncedLyrics(lyricsData.syncedLyrics);
+      showLyrics();
+      startLyricsSync();
+    } else if (lyricsData.plainLyrics) {
+      // Show plain lyrics if synced lyrics aren't available
+      showPlainLyrics(lyricsData.plainLyrics, activityId);
+    } else {
+      hideLyrics();
+    }
+  } catch (error) {
+    console.error("Error fetching lyrics:", error);
+    hideLyrics();
+  }
+}
+
+// Parse synced lyrics
+function parseSyncedLyrics(syncedLyrics) {
+  const lines = syncedLyrics.split("\n").filter((line) => line.trim());
+  return lines
+    .map((line) => {
+      const match = line.match(/\[(\d{2}):(\d{2})\.(\d{2})\]\s*(.+)/);
+      if (match) {
+        const minutes = parseInt(match[1]);
+        const seconds = parseInt(match[2]);
+        const centiseconds = parseInt(match[3]);
+        const timestamp = (minutes * 60 + seconds) * 1000 + centiseconds * 10;
+        return {
+          timestamp,
+          text: match[4].trim(),
+        };
+      }
+      return null;
+    })
+    .filter(Boolean);
+}
+
+// Show lyrics container
+function showLyrics() {
+  if (currentSpotifyActivity?.timestamps?.start) {
+    const activityId = `spotify-${currentSpotifyActivity.timestamps.start}`;
+    const lyricsToggle = document.getElementById(`lyrics-toggle-${activityId}`);
+    if (lyricsToggle) {
+      lyricsToggle.classList.remove("hidden");
+      console.log("Lyrics toggle shown for activity:", activityId);
+    } else {
+      console.log("Lyrics toggle not found for activity:", activityId);
+    }
+  }
+}
+
+// Create lyrics container
+function createLyricsContainer(activityId) {
+  const container = document.createElement("div");
+  container.id = `lyrics-container-${activityId}`;
+  container.className = "mt-2 p-4 bg-[var(--surface)] rounded-lg hidden";
+
+  const lyricsDisplay = document.createElement("div");
+  lyricsDisplay.id = `lyrics-display-${activityId}`;
+  lyricsDisplay.className = "max-h-48 overflow-y-auto space-y-1";
+
+  container.appendChild(lyricsDisplay);
+
+  return container;
+}
+
+// Show plain lyrics
+function showPlainLyrics(plainLyrics, activityId) {
+  showLyrics();
+  const lyricsDisplay = document.getElementById(`lyrics-display-${activityId}`);
+  if (lyricsDisplay) {
+    lyricsDisplay.innerHTML = `
+      <div class="text-sm text-[var(--text)] opacity-70 whitespace-pre-line">
+        ${sanitizeText(plainLyrics)}
+      </div>
+    `;
+  }
+}
+
+// Hide lyrics
+function hideLyrics() {
+  const lyricsToggles = document.querySelectorAll('[id^="lyrics-toggle-"]');
+  lyricsToggles.forEach((toggle) => toggle.classList.add("hidden"));
+
+  const lyricsContainers = document.querySelectorAll(
+    '[id^="lyrics-container-"]',
+  );
+  lyricsContainers.forEach((container) => {
+    container.classList.add("hidden");
+    container.setAttribute("data-expanded", "false");
+  });
+}
+
+// Start lyrics synchronization
+function startLyricsSync() {
+  const existingLyricsInterval = intervals.find((i) => i.type === "lyrics");
+  if (existingLyricsInterval) {
+    clearInterval(existingLyricsInterval.id);
+    intervals = intervals.filter((i) => i.type !== "lyrics");
+  }
+
+  const intervalId = setInterval(() => {
+    if (currentLyrics && currentSpotifyActivity?.timestamps?.start) {
+      updateLyricsDisplay();
+    }
+  }, CONFIG.UPDATE_INTERVALS.LYRICS_SYNC);
+
+  intervals.push({ type: "lyrics", id: intervalId });
+}
+
+// Helper function to get the current lyric line
+function getCurrentLyricLine() {
+  if (!currentLyrics || !currentSpotifyActivity?.timestamps?.start) return null;
+
+  const currentTime = Date.now() - currentSpotifyActivity.timestamps.start;
+  let currentLine = null;
+
+  for (let i = 0; i < currentLyrics.length; i++) {
+    if (currentTime >= currentLyrics[i].timestamp) {
+      currentLine = currentLyrics[i].text;
+    } else {
+      break;
+    }
+  }
+
+  return currentLine;
+}
+
+// Update lyrics display
+function updateLyricsDisplay() {
+  if (!currentLyrics || !currentSpotifyActivity?.timestamps?.start) return;
+
+  const currentTime = Date.now() - currentSpotifyActivity.timestamps.start;
+  const activityId = `spotify-${currentSpotifyActivity.timestamps.start}`;
+  const lyricsDisplay = document.getElementById(`lyrics-display-${activityId}`);
+  const lyricsToggleText = document.getElementById(
+    `lyrics-toggle-text-${activityId}`,
+  );
+
+  if (!lyricsDisplay) return;
+
+  let currentLineIndex = -1;
+  for (let i = 0; i < currentLyrics.length; i++) {
+    if (currentTime >= currentLyrics[i].timestamp) {
+      currentLineIndex = i;
+    } else {
+      break;
+    }
+  }
+
+  const lyricsHTML = currentLyrics
+    .map((line, index) => {
+      const isActive = index === currentLineIndex;
+      const isPast = index < currentLineIndex;
+      const isFuture = index > currentLineIndex;
+
+      let className = "text-sm transition-all duration-300 py-1";
+
+      if (isActive) {
+        className += " text-[var(--iris)] font-semibold";
+      } else if (isPast) {
+        className += " text-[var(--text)] opacity-50";
+      } else if (isFuture) {
+        className += " text-[var(--text)] opacity-30";
+      }
+
+      return `<div class="${className}">${sanitizeText(line.text)}</div>`;
+    })
+    .join("");
+
+  lyricsDisplay.innerHTML = lyricsHTML;
+
+  if (lyricsToggleText) {
+    const isExpanded =
+      document
+        .getElementById(`lyrics-container-${activityId}`)
+        ?.getAttribute("data-expanded") === "true";
+    const currentLyric = getCurrentLyricLine();
+    lyricsToggleText.textContent = currentLyric
+      ? isExpanded
+        ? "Hide Lyrics"
+        : currentLyric
+      : isExpanded
+        ? "Hide Lyrics"
+        : "Show Lyrics";
+  }
+
+  if (currentLineIndex >= 0) {
+    const currentLineElement = lyricsDisplay.children[currentLineIndex];
+    if (currentLineElement) {
+      currentLineElement.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+    }
+  }
+}
+
 function createActivityCard(activity) {
+  const activityId =
+    activity.name === "Spotify"
+      ? `spotify-${activity.timestamps?.start || Date.now()}`
+      : `activity-${Date.now()}`;
+
   const card = document.createElement("div");
   card.className =
-    "activity-card bg-[var(--overlay)] p-4 rounded-lg flex items-center space-x-3";
+    "activity-card bg-[var(--overlay)] p-4 rounded-lg flex flex-col space-y-3";
   card.setAttribute("role", "article");
   card.setAttribute("aria-label", `Activity: ${activity.name}`);
+
+  const mainContent = document.createElement("div");
+  mainContent.className = "flex items-center space-x-3";
 
   const icon = createActivityIcon(activity);
   const content = createActivityContent(activity);
 
-  card.appendChild(icon);
-  card.appendChild(content);
+  mainContent.appendChild(icon);
+  mainContent.appendChild(content);
+  card.appendChild(mainContent);
+
+  if (activity.name === "Spotify") {
+    const lyricsToggle = createLyricsToggle(activityId);
+    const lyricsContainer = createLyricsContainer(activityId);
+
+    card.appendChild(lyricsToggle);
+    card.appendChild(lyricsContainer);
+  }
 
   return card;
 }
 
-// Create activity icon
+// Lyrics toggle button
+function createLyricsToggle(activityId) {
+  const toggleContainer = document.createElement("div");
+  toggleContainer.id = `lyrics-toggle-${activityId}`;
+  toggleContainer.className = "hidden";
+
+  const toggleButton = document.createElement("button");
+  toggleButton.className =
+    "flex justify-center items-center text-sm font-medium text-[var(--love)] gap-1 hover:underline focus:underline focus:outline-none";
+  toggleButton.innerHTML = `
+    <span id="lyrics-toggle-text-${activityId}">Show Lyrics</span>
+    <svg class="w-4 h-4 mr-2 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+    </svg>
+  `;
+
+  toggleButton.addEventListener("click", () => {
+    const lyricsContainer = document.getElementById(
+      `lyrics-container-${activityId}`,
+    );
+    const isExpanded = lyricsContainer.getAttribute("data-expanded") === "true";
+    const icon = toggleButton.querySelector("svg");
+    const text = toggleButton.querySelector(
+      `#lyrics-toggle-text-${activityId}`,
+    );
+
+    if (isExpanded) {
+      lyricsContainer.classList.add("hidden");
+      lyricsContainer.setAttribute("data-expanded", "false");
+      icon.style.transform = "rotate(0deg)";
+      text.textContent = currentLyrics
+        ? getCurrentLyricLine() || "Show Lyrics"
+        : "Show Lyrics";
+    } else {
+      lyricsContainer.classList.remove("hidden");
+      lyricsContainer.setAttribute("data-expanded", "true");
+      icon.style.transform = "rotate(90deg)";
+      text.textContent = currentLyrics
+        ? getCurrentLyricLine() || "Hide Lyrics"
+        : "Hide Lyrics";
+    }
+  });
+
+  toggleContainer.appendChild(toggleButton);
+  return toggleContainer;
+}
+
 function createActivityIcon(activity) {
   const icon = document.createElement("img");
   icon.className = "sm:size-24 size-16 rounded-lg";
@@ -250,7 +550,6 @@ function createActivityIcon(activity) {
   if (activity.assets?.large_image) {
     let iconUrl = activity.assets.large_image;
 
-    // Handle different icon URL formats
     if (iconUrl.startsWith("mp:external/")) {
       iconUrl = iconUrl.replace(
         "mp:external/",
@@ -277,13 +576,11 @@ function createActivityContent(activity) {
   const content = document.createElement("div");
   content.className = "flex-1";
 
-  // Activity name
   const name = document.createElement("div");
   name.className = "font-semibold text-md text-[var(--text)]";
   name.textContent = sanitizeText(activity.name);
   content.appendChild(name);
 
-  // Activity details (for Spotify, make it a link)
   if (activity.name === "Spotify" && activity.sync_id) {
     const trackLink = document.createElement("a");
     trackLink.href = `https://open.spotify.com/track/${activity.sync_id}`;
@@ -305,7 +602,6 @@ function createActivityContent(activity) {
     content.appendChild(details);
   }
 
-  // Activity state
   if (activity.state) {
     const state = document.createElement("p");
     state.className = "text-sm text-[var(--foam)]";
@@ -360,7 +656,6 @@ function updatePlatformInfo(userData) {
 
 // Start elapsed time updates
 function startElapsedTimeUpdates() {
-  // Clear existing interval to prevent duplicates
   const existingInterval = intervals.find((i) => i.type === "elapsed");
   if (existingInterval) {
     clearInterval(existingInterval.id);
@@ -381,7 +676,6 @@ function startElapsedTimeUpdates() {
 
 // Start periodic updates
 function startPeriodicUpdates() {
-  // Activity time update interval
   const activityUpdateId = setInterval(() => {
     const activityTimeEl = document.getElementById("activity-time");
     const startTime = window.currentActivityStart;
@@ -400,19 +694,15 @@ function setupVisibilityHandling() {
 
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) {
-      // Page is hidden, reduce update frequency
       isVisible = false;
       console.log("Page hidden, reducing update frequency");
     } else {
-      // Page is visible, resume normal updates
       isVisible = true;
       console.log("Page visible, resuming normal updates");
-      // Immediately fetch fresh data when page becomes visible
       getDiscordStatusWithRetry();
     }
   });
 
-  // Cleanup intervals when page is unloaded
   window.addEventListener("beforeunload", () => {
     intervals.forEach((interval) => clearInterval(interval.id));
   });

@@ -39,7 +39,14 @@
 
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdn.counter.dev; img-src 'self' https://cdn.discordapp.com https://github.com https://i.scdn.co https://media.discordapp.net; connect-src 'self' https://api.lanyard.rest https://cdn.counter.dev; style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com; font-src 'self';"
+      content="
+    default-src 'self';
+    script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com;
+    img-src 'self' https://cdn.discordapp.com https://github.com https://i.scdn.co https://media.discordapp.net;
+    connect-src 'self' https://api.lanyard.rest https://lrclib.net;
+    style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com;
+    font-src 'self';
+  "
     />
 
     <script src="https://cdn.tailwindcss.com"></script>

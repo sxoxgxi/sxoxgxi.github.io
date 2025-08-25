@@ -7,6 +7,7 @@
   --idle: #fdfd96;
   --offline: #cfcfc4;
   --text: #e0def4;
+  --muted: #908caa;
   --love: #eb6f92;
   --gold: #f6c177;
   --pine: #31748f;
@@ -14,15 +15,16 @@
   --iris: #c4a7e7;
 }
 
+body {
+  background-color: var(--base);
+  color: var(--text);
+}
+
 .activity-card {
   transition: background-color 0.3s ease;
 }
 .activity-card:hover {
   background-color: var(--surface);
-}
-body {
-  background-color: var(--base);
-  color: var(--text);
 }
 .size-15 {
   width: 60px;
@@ -118,6 +120,7 @@ button:focus-visible {
   text-decoration: underline;
 }
 
+/* Media Queries */
 @media (max-width: 640px) {
   .size-15 {
     width: 48px;
@@ -137,6 +140,7 @@ button:focus-visible {
   }
 }
 
+/* Animations */
 .wiggle {
   animation: wiggle 2s ease-in-out infinite;
 }
@@ -181,4 +185,16 @@ button:focus-visible {
   100% {
     transform: translateY(0px);
   }
+}
+
+.fade-in {
+  opacity: 0;
+  transform: translateY(20px);
+  transition:
+    opacity 0.5s ease-out,
+    transform 0.5s ease-out;
+}
+.fade-in.visible {
+  opacity: 1;
+  transform: translateY(0);
 }
