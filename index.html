@@ -42,13 +42,12 @@
       content="
     default-src 'self';
     script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com;
-    img-src 'self' https://cdn.discordapp.com https://github.com https://i.scdn.co https://media.discordapp.net;
-    connect-src 'self' https://api.lanyard.rest https://lrclib.net;
+    img-src 'self' https://i.scdn.co;
+    connect-src 'self' wss://syncroom.sxoxgxi.workers.dev https://syncroom.sxoxgxi.workers.dev;
     style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com;
     font-src 'self';
   "
     />
-
     <script src="https://cdn.tailwindcss.com"></script>
 
     <link rel="stylesheet" href="styles/global.css" />
@@ -208,16 +207,13 @@
       <div class="w-full max-w-md" id="presence-section">
         <!-- Discord Activity Details -->
         <div id="activities-container">
-          <h2 class="text-lg font-semibold text-[var(--foam)]">
-            Currently Active
+          <h2
+            class="text-lg font-semibold text-[var(--foam)]"
+            id="activity-label"
+          >
+            Last Presence
           </h2>
           <div id="activities-list" class="flex flex-col space-y-4 mt-2"></div>
-        </div>
-
-        <!-- Platform Info -->
-        <div id="platform-info" class="mt-6">
-          <h2 class="text-lg font-semibold text-[var(--gold)]">Active On</h2>
-          <div class="flex flex-wrap gap-3 mt-2" id="platform-badges"></div>
         </div>
       </div>
     </div>
@@ -237,8 +233,7 @@
       >
     </footer>
 
-    <script src="scripts/discord.js"></script>
-
+    <script src="scripts/sync.js"></script>
     <script type="module">
       import { getRandomQuote } from "./scripts/quotes.js";
 

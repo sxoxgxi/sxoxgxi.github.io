@@ -47,7 +47,10 @@ function timeAgo(date) {
   }
   return "just now";
 }
+const spinner = document.getElementById("spinner");
+const lastUpdated = document.getElementById("last-updated");
 
+spinner.style.display = "flex";
 fetch(apiURL)
   .then((res) => res.json())
   .then((data) => {
@@ -56,8 +59,15 @@ fetch(apiURL)
       const date = new Date(dateStr);
       const ago = timeAgo(date);
 
-      document.getElementById("last-updated").textContent =
-        `Last updated: ${ago}`;
+      lastUpdated.textContent = `Last updated: ${ago}`;
+    } else {
+      lastUpdated.textContent = "No data available.";
     }
   })
-  .catch(console.error);
+  .catch((err) => {
+    console.error(err);
+    lastUpdated.textContent = "Failed to fetch data.";
+  })
+  .finally(() => {
+    spinner.style.display = "none";
+  });
