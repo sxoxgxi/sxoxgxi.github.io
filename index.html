@@ -1,5 +1,4 @@
 <!doctype html>
-
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -37,17 +36,6 @@
     <link rel="preload" href="https://github.com/sxoxgxi.png" as="image" />
     <link rel="icon" type="image/x-icon" href="favicon.ico" />
 
-    <meta
-      http-equiv="Content-Security-Policy"
-      content="
-    default-src 'self';
-    script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com;
-    img-src 'self' https://i.scdn.co https://gravatar.com https://secure.gravatar.com;
-    connect-src 'self' wss://syncroom.sxoxgxi.workers.dev https://syncroom.sxoxgxi.workers.dev;
-    style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com;
-    font-src 'self';
-  "
-    />
     <script src="https://cdn.tailwindcss.com"></script>
 
     <link rel="stylesheet" href="styles/global.css" />
@@ -230,10 +218,9 @@
         href="#"
         class="hover:text-[var(--love)] transition-colors duration-200 text-sm"
         >Logs</a
-
-        
-      <a href="https://github.com/sxoxgxi/sxoxgxi.github.io" target="_blank"
-        ><svg
+      >
+      <a href="https://github.com/sxoxgxi/sxoxgxi.github.io" target="_blank">
+        <svg
           xmlns="http://www.w3.org/2000/svg"
           viewBox="0 0 24 24"
           class="h-4 w-4 hover:text-[var(--love)] transition-colors duration-200"
@@ -246,11 +233,9 @@
         >
           <path d="M15 3h6v6" />
           <path d="M10 14 21 3" />
-          <path
-            d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"
-          /></svg
-      ></a>
-        
+          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+        </svg>
+      </a>
     </footer>
 
     <script src="scripts/sync.js"></script>
@@ -273,11 +258,20 @@
     <script>
       const usernameElement = document.getElementById("username");
       const originalContent = usernameElement.innerHTML;
+      const tempName = "Nirmal";
+
+      let timeoutId;
+
       usernameElement.addEventListener("mouseenter", () => {
+        clearTimeout(timeoutId);
         usernameElement.innerHTML = "/ˈsoʊɡi/";
       });
+
       usernameElement.addEventListener("mouseleave", () => {
-        usernameElement.innerHTML = originalContent;
+        usernameElement.innerHTML = tempName;
+        timeoutId = setTimeout(() => {
+          usernameElement.innerHTML = originalContent;
+        }, 2000);
       });
     </script>
   </body>
