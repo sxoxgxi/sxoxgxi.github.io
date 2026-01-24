@@ -37,6 +37,7 @@ let lastTrackId = null;
 let currentSpotifyActivity = null;
 let isWebSocketConnected = false;
 let hasOfflineDataLoaded = false;
+let lyricsReplayOffset = null;
 
 const sanitizeText = (() => {
   const div = document.createElement("div");
@@ -258,25 +259,24 @@ function updatePlatformInfo(device) {
         </span>`;
 }
 
-function loadOfflineData() {
-  return fetch(`${CONFIG.BASE_URL}/cache`)
-    .then((res) => {
-      if (!res.ok) throw new Error(`HTTP ${res.status} — ${res.statusText}`);
-      const contentType = res.headers.get("content-type") || "";
-      return contentType.includes("application/json") ? res.json() : res.text();
-    })
-    .then((data) => {
-      if (data && (data.data?.spotify || data.spotify)) {
-        updateUIWithData(data);
-        updateStatusBadge("offline");
-        hasOfflineDataLoaded = true;
-      } else {
-        Logger.info("No offline Spotify data available");
-      }
-    })
-    .catch((error) => {
-      Logger.error("Error loading offline data:", error);
-    });
+async function loadOfflineData() {
+  try {
+    const res = await fetch(`${CONFIG.BASE_URL}/cache`);
+    if (!res.ok) throw new Error(`HTTP ${res.status} — ${res.statusText}`);
+    const contentType = res.headers.get("content-type") || "";
+    const data = await (contentType.includes("application/json")
+      ? res.json()
+      : res.text());
+    if (data && (data.data?.spotify || data.spotify)) {
+      updateUIWithData(data);
+      updateStatusBadge("offline");
+      hasOfflineDataLoaded = true;
+    } else {
+      Logger.info("No offline Spotify data available");
+    }
+  } catch (error) {
+    Logger.error("Error loading offline data:", error);
+  }
 }
 
 function updateStatusBadge(status) {
@@ -391,8 +391,8 @@ function showLyrics() {
     const lyricsToggle = document.getElementById(`lyrics-toggle-${activityId}`);
     if (lyricsToggle) {
       lyricsToggle.classList.remove(CONFIG.CLASSES.HIDDEN);
-      lyricsToggle.setAttribute("aria-busy", "true"); // Indicate loading
-      setTimeout(() => lyricsToggle.removeAttribute("aria-busy"), 500); // Simulate delay
+      lyricsToggle.setAttribute("aria-busy", "true");
+      setTimeout(() => lyricsToggle.removeAttribute("aria-busy"), 500);
     }
   }
 }
@@ -458,7 +458,13 @@ function startLyricsSync() {
 function getCurrentLyricLine() {
   if (!currentLyrics || !currentSpotifyActivity?.timestamps?.start) return null;
 
-  const currentTime = Date.now() - currentSpotifyActivity.timestamps.start;
+  const actualCurrentTime =
+    Date.now() - currentSpotifyActivity.timestamps.start;
+  const currentTime =
+    lyricsReplayOffset !== null
+      ? Date.now() - lyricsReplayOffset
+      : actualCurrentTime;
+
   let currentLine = null;
 
   for (let i = 0; i < currentLyrics.length; i++) {
@@ -471,16 +477,24 @@ function getCurrentLyricLine() {
 
   return currentLine;
 }
-
 function updateLyricsDisplay() {
   if (!currentLyrics || !currentSpotifyActivity?.timestamps?.start) return;
 
-  const currentTime = Date.now() - currentSpotifyActivity.timestamps.start;
+  const actualCurrentTime =
+    Date.now() - currentSpotifyActivity.timestamps.start;
+
+  const currentTime =
+    lyricsReplayOffset !== null
+      ? Date.now() - lyricsReplayOffset
+      : actualCurrentTime;
+
   const activityId = `spotify-${currentSpotifyActivity.timestamps.start}`;
   const lyricsDisplay = document.getElementById(`lyrics-display-${activityId}`);
   const lyricsToggleText = document.getElementById(
     `lyrics-toggle-text-${activityId}`,
   );
+
+  const replayButton = document.getElementById(`lyrics-replay-${activityId}`);
 
   if (!lyricsDisplay) return;
 
@@ -494,6 +508,17 @@ function updateLyricsDisplay() {
       currentLineIndex = i;
     } else {
       break;
+    }
+  }
+
+  const songFinished =
+    actualCurrentTime >
+    currentLyrics[currentLyrics.length - 1].timestamp + 3000;
+  if (replayButton) {
+    if (songFinished && lyricsReplayOffset === null) {
+      replayButton.classList.remove(CONFIG.CLASSES.HIDDEN);
+    } else if (lyricsReplayOffset !== null) {
+      replayButton.classList.add(CONFIG.CLASSES.HIDDEN);
     }
   }
 
@@ -549,7 +574,7 @@ function updateLyricsDisplay() {
         : "Show Lyrics";
   }
 
-  if (currentLineIndex >= 0) {
+  if (currentLineIndex >= 0 && currentLineIndex < currentLyrics.length - 1) {
     const currentLineElement = lyricsDisplay.children[currentLineIndex];
     if (currentLineElement) {
       currentLineElement.scrollIntoView({
@@ -557,6 +582,18 @@ function updateLyricsDisplay() {
         block: "center",
       });
     }
+  }
+
+  if (
+    lyricsReplayOffset !== null &&
+    currentLineIndex >= currentLyrics.length - 1
+  ) {
+    setTimeout(() => {
+      lyricsReplayOffset = null;
+      if (replayButton) {
+        replayButton.classList.remove(CONFIG.CLASSES.HIDDEN);
+      }
+    }, 2000);
   }
 }
 
@@ -572,13 +609,19 @@ function createActivityCard(activity) {
   card.setAttribute("aria-label", `Activity: ${activity.name}`);
 
   const mainContent = document.createElement("div");
-  mainContent.className = "flex items-center space-x-3";
+  mainContent.className = "flex items-center space-x-3 relative";
 
   const icon = createActivityIcon(activity);
   const content = createActivityContent(activity);
 
   mainContent.appendChild(icon);
   mainContent.appendChild(content);
+
+  if (activity.name === "Spotify") {
+    const replayButton = createReplayButton(activityId);
+    mainContent.appendChild(replayButton);
+  }
+
   card.appendChild(mainContent);
 
   if (activity.name === "Spotify") {
@@ -590,7 +633,6 @@ function createActivityCard(activity) {
 
   return card;
 }
-
 function createLyricsToggle(activityId) {
   const toggleContainer = document.createElement("div");
   toggleContainer.id = `lyrics-toggle-${activityId}`;
@@ -641,6 +683,14 @@ function createLyricsToggle(activityId) {
 
   toggleContainer.appendChild(toggleButton);
   return toggleContainer;
+}
+
+function replayLyrics(activityId) {
+  lyricsReplayOffset = Date.now();
+  const lyricsDisplay = document.getElementById(`lyrics-display-${activityId}`);
+  if (lyricsDisplay) {
+    lyricsDisplay.scrollTop = 0;
+  }
 }
 
 function createActivityIcon(activity) {
@@ -708,6 +758,26 @@ function createActivityContent(activity) {
   }
 
   return content;
+}
+
+function createReplayButton(activityId) {
+  const replayButton = document.createElement("button");
+  replayButton.id = `lyrics-replay-${activityId}`;
+  replayButton.className =
+    "absolute top-0 right-0 p-2 bg-[var(--overlay)] hover:bg-[var(--highlight-med)] text-[var(--text)] rounded-lg transition-colors duration-200 hidden";
+  replayButton.setAttribute("aria-label", "Karaoke Mode (Replay Lyrics)");
+  replayButton.setAttribute("title", "Karaoke Mode (Replay Lyrics)");
+  replayButton.innerHTML = `
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+    </svg>
+  `;
+
+  replayButton.addEventListener("click", () => {
+    replayLyrics(activityId);
+  });
+
+  return replayButton;
 }
 
 function startElapsedTimeUpdates(isOffline = false) {
