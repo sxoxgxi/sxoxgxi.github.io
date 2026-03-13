@@ -33,8 +33,8 @@ let websocket = null;
 let retryDelay = 5000;
 let intervals = [];
 let currentLyrics = null;
-let lastTrackId = null;
-let currentSpotifyActivity = null;
+let lastTrackKey = null;
+let currentLastfmActivity = null;
 let isWebSocketConnected = false;
 let hasOfflineDataLoaded = false;
 let lyricsReplayOffset = null;
@@ -61,15 +61,15 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 function initializeWebSocket() {
+  initAmbientArt();
+
   loadOfflineData().finally(() => {
     WebSocketManager.connect();
   });
 
   window.addEventListener("beforeunload", () => {
     intervals.forEach((interval) => clearInterval(interval.id));
-    if (websocket) {
-      websocket.close(1000, "Page unloading");
-    }
+    if (websocket) websocket.close(1000, "Page unloading");
   });
 }
 
@@ -201,44 +201,44 @@ function showErrorState() {
   }
 }
 
+function extractLastfmData(data) {
+  return data.data?.lastfm ?? data.lastfm ?? null;
+}
+
 function updateUIWithData(data) {
   try {
-    const spotifyData = data.data?.spotify || data.spotify;
+    const lastfmData = extractLastfmData(data);
     const isOffline = data.is_offline ?? false;
     const device = data.device;
 
     updateStatusBadge(isOffline ? "offline" : "online");
 
-    if (spotifyData && !isOffline) {
-      const trackId = spotifyData.track_id;
-      if (trackId !== lastTrackId) {
-        const activityData = data.data ? data.data : data;
-        updateActivitiesList([createSpotifyActivity(activityData, isOffline)]);
+    if (lastfmData) {
+      const trackKey = lastfmData.track_key;
 
-        if (device) {
-          updatePlatformInfo(device);
-        }
-        lastTrackId = trackId;
+      if (
+        trackKey !== lastTrackKey ||
+        isOffline !== (currentLastfmActivity?.is_offline ?? true)
+      ) {
+        const activityData = data.data ?? data;
+        updateActivitiesList([createLastfmActivity(activityData, isOffline)]);
+
+        updateAmbientArt(lastfmData.album_art_url ?? null);
+
+        if (device) updatePlatformInfo(device);
+
+        lastTrackKey = trackKey;
         hasOfflineDataLoaded = true;
       }
     } else {
-      if (spotifyData) {
-        const activityData = data.data ? data.data : data;
-        updateActivitiesList([createSpotifyActivity(activityData, isOffline)]);
-        if (device) {
-          updatePlatformInfo(device);
-        }
-        hasOfflineDataLoaded = true;
-      } else {
-        document
-          .getElementById(CONFIG.DOM_IDS.PRESENCE_SECTION)
-          ?.classList.add(CONFIG.CLASSES.HIDDEN);
-        currentSpotifyActivity = null;
-        currentLyrics = null;
-        lastTrackId = null;
-        hideLyrics();
-        hasOfflineDataLoaded = false;
-      }
+      document
+        .getElementById(CONFIG.DOM_IDS.PRESENCE_SECTION)
+        ?.classList.add(CONFIG.CLASSES.HIDDEN);
+      currentLastfmActivity = null;
+      currentLyrics = null;
+      lastTrackKey = null;
+      hideLyrics();
+      hasOfflineDataLoaded = false;
     }
   } catch (error) {
     Logger.error("Error updating UI:", error);
@@ -247,16 +247,15 @@ function updateUIWithData(data) {
 
 function updatePlatformInfo(device) {
   const platformInfoEl = document.getElementById("platform-info");
-
   if (!platformInfoEl || !device) return;
 
   platformInfoEl.classList.remove(CONFIG.CLASSES.HIDDEN);
   platformInfoEl.innerHTML = `
-        <span class="inline-flex items-center px-2 py-1 rounded-lg text-xs bg-[var(--overlay)] text-[var(--text)]" 
-              role="status" 
-              aria-label="Active on ${device.name}">
-          ${device.type}: ${device.name}
-        </span>`;
+    <span class="inline-flex items-center px-2 py-1 rounded-lg text-xs bg-[var(--overlay)] text-[var(--text)]"
+          role="status"
+          aria-label="Active on ${sanitizeText(device.name)}">
+      ${sanitizeText(device.type)}: ${sanitizeText(device.name)}
+    </span>`;
 }
 
 async function loadOfflineData() {
@@ -267,12 +266,13 @@ async function loadOfflineData() {
     const data = await (contentType.includes("application/json")
       ? res.json()
       : res.text());
-    if (data && (data.data?.spotify || data.spotify)) {
+
+    if (data && extractLastfmData(data)) {
       updateUIWithData(data);
       updateStatusBadge("offline");
       hasOfflineDataLoaded = true;
     } else {
-      Logger.info("No offline Spotify data available");
+      Logger.info("No offline Last.fm data available");
     }
   } catch (error) {
     Logger.error("Error loading offline data:", error);
@@ -325,27 +325,27 @@ function updateActivitiesList(activities) {
       activitiesList.appendChild(card);
     });
 
-    const spotifyActivity = activities.find(
-      (activity) => activity.name === "Spotify",
-    );
-    if (spotifyActivity && spotifyActivity !== currentSpotifyActivity) {
-      currentSpotifyActivity = spotifyActivity;
-      if (currentSpotifyActivity.lyrics) {
-        currentLyrics = currentSpotifyActivity.lyrics.synced
-          ? parseSyncedLyrics(currentSpotifyActivity.lyrics.lines)
-          : { plain: currentSpotifyActivity.lyrics.plain_lyrics };
+    const lastfmActivity = activities.find((a) => a.name === "Last.fm");
+
+    if (lastfmActivity && lastfmActivity !== currentLastfmActivity) {
+      currentLastfmActivity = lastfmActivity;
+
+      if (currentLastfmActivity.lyrics) {
+        currentLyrics = currentLastfmActivity.lyrics.synced
+          ? parseSyncedLyrics(currentLastfmActivity.lyrics.lines)
+          : { plain: currentLastfmActivity.lyrics.plain_lyrics };
         showLyrics();
-        if (currentSpotifyActivity.lyrics.synced) {
+        if (currentLastfmActivity.lyrics.synced) {
           startLyricsSync();
         } else {
           showPlainLyrics(
-            currentSpotifyActivity.lyrics.plain_lyrics,
-            `spotify-${spotifyActivity.timestamps.start}`,
+            currentLastfmActivity.lyrics.plain_lyrics,
+            `lastfm-${lastfmActivity.timestamps.start}`,
           );
         }
       }
-    } else if (!spotifyActivity) {
-      currentSpotifyActivity = null;
+    } else if (!lastfmActivity) {
+      currentLastfmActivity = null;
       currentLyrics = null;
       hideLyrics();
     }
@@ -353,28 +353,30 @@ function updateActivitiesList(activities) {
     startElapsedTimeUpdates(activities[0].is_offline);
   } else {
     activitiesContainer.classList.add(CONFIG.CLASSES.HIDDEN);
-    currentSpotifyActivity = null;
+    currentLastfmActivity = null;
     currentLyrics = null;
     hideLyrics();
   }
 }
 
-function createSpotifyActivity(spotifyData, isOffline = false) {
-  const spotify = spotifyData.spotify || spotifyData;
+function createLastfmActivity(data, isOffline = false) {
+  const lfm = data.lastfm ?? data;
   return {
-    name: "Spotify",
+    name: "Last.fm",
     is_offline: isOffline,
-    details: spotify.song,
-    state: spotify.artist,
+    details: lfm.song,
+    state: lfm.artist,
+    album: lfm.album,
     timestamps: {
-      start: spotify.timestamps?.start,
-      end: spotify.timestamps?.end,
+      start: lfm.timestamps?.start ?? null,
+      end: lfm.timestamps?.end ?? null,
     },
     assets: {
-      large_image: spotify.album_art_url,
+      large_image: lfm.album_art_url,
     },
-    sync_id: spotify.track_id,
-    lyrics: spotifyData.lyrics,
+    track_key: lfm.track_key,
+    track_url: lfm.url ?? null,
+    lyrics: data.lyrics,
   };
 }
 
@@ -386,8 +388,8 @@ function parseSyncedLyrics(lines) {
 }
 
 function showLyrics() {
-  if (currentSpotifyActivity?.timestamps?.start) {
-    const activityId = `spotify-${currentSpotifyActivity.timestamps.start}`;
+  if (currentLastfmActivity?.timestamps?.start) {
+    const activityId = `lastfm-${currentLastfmActivity.timestamps.start}`;
     const lyricsToggle = document.getElementById(`lyrics-toggle-${activityId}`);
     if (lyricsToggle) {
       lyricsToggle.classList.remove(CONFIG.CLASSES.HIDDEN);
@@ -425,29 +427,24 @@ function showPlainLyrics(plainLyrics, activityId) {
 }
 
 function hideLyrics() {
-  const lyricsToggles = document.querySelectorAll('[id^="lyrics-toggle-"]');
-  lyricsToggles.forEach((toggle) =>
-    toggle.classList.add(CONFIG.CLASSES.HIDDEN),
-  );
-
-  const lyricsContainers = document.querySelectorAll(
-    '[id^="lyrics-container-"]',
-  );
-  lyricsContainers.forEach((container) => {
-    container.classList.add(CONFIG.CLASSES.HIDDEN);
-    container.setAttribute("data-expanded", "false");
+  document
+    .querySelectorAll('[id^="lyrics-toggle-"]')
+    .forEach((el) => el.classList.add(CONFIG.CLASSES.HIDDEN));
+  document.querySelectorAll('[id^="lyrics-container-"]').forEach((el) => {
+    el.classList.add(CONFIG.CLASSES.HIDDEN);
+    el.setAttribute("data-expanded", "false");
   });
 }
 
 function startLyricsSync() {
-  const existingLyricsInterval = intervals.find((i) => i.type === "lyrics");
-  if (existingLyricsInterval) {
-    clearInterval(existingLyricsInterval.id);
+  const existing = intervals.find((i) => i.type === "lyrics");
+  if (existing) {
+    clearInterval(existing.id);
     intervals = intervals.filter((i) => i.type !== "lyrics");
   }
 
   const intervalId = setInterval(() => {
-    if (currentLyrics && currentSpotifyActivity?.timestamps?.start) {
+    if (currentLyrics && currentLastfmActivity?.timestamps?.start) {
       updateLyricsDisplay();
     }
   }, CONFIG.UPDATE_INTERVALS.LYRICS_SYNC);
@@ -456,17 +453,15 @@ function startLyricsSync() {
 }
 
 function getCurrentLyricLine() {
-  if (!currentLyrics || !currentSpotifyActivity?.timestamps?.start) return null;
+  if (!currentLyrics || !currentLastfmActivity?.timestamps?.start) return null;
 
-  const actualCurrentTime =
-    Date.now() - currentSpotifyActivity.timestamps.start;
+  const actualCurrentTime = Date.now() - currentLastfmActivity.timestamps.start;
   const currentTime =
     lyricsReplayOffset !== null
       ? Date.now() - lyricsReplayOffset
       : actualCurrentTime;
 
   let currentLine = null;
-
   for (let i = 0; i < currentLyrics.length; i++) {
     if (currentTime >= currentLyrics[i].timestamp) {
       currentLine = currentLyrics[i].text;
@@ -477,30 +472,24 @@ function getCurrentLyricLine() {
 
   return currentLine;
 }
+
 function updateLyricsDisplay() {
-  if (!currentLyrics || !currentSpotifyActivity?.timestamps?.start) return;
+  if (!currentLyrics || !currentLastfmActivity?.timestamps?.start) return;
 
-  const actualCurrentTime =
-    Date.now() - currentSpotifyActivity.timestamps.start;
-
+  const actualCurrentTime = Date.now() - currentLastfmActivity.timestamps.start;
   const currentTime =
     lyricsReplayOffset !== null
       ? Date.now() - lyricsReplayOffset
       : actualCurrentTime;
 
-  const activityId = `spotify-${currentSpotifyActivity.timestamps.start}`;
+  const activityId = `lastfm-${currentLastfmActivity.timestamps.start}`;
   const lyricsDisplay = document.getElementById(`lyrics-display-${activityId}`);
   const lyricsToggleText = document.getElementById(
     `lyrics-toggle-text-${activityId}`,
   );
-
   const replayButton = document.getElementById(`lyrics-replay-${activityId}`);
 
-  if (!lyricsDisplay) return;
-
-  if (currentLyrics.plain) {
-    return;
-  }
+  if (!lyricsDisplay || currentLyrics.plain) return;
 
   let currentLineIndex = -1;
   for (let i = 0; i < currentLyrics.length; i++) {
@@ -526,37 +515,23 @@ function updateLyricsDisplay() {
     Array.from(lyricsDisplay.children).forEach((child, index) => {
       const isActive = index === currentLineIndex;
       const isPast = index < currentLineIndex;
-      const isFuture = index > currentLineIndex;
-
       child.className = "text-sm transition-all duration-300 py-1";
-      if (isActive) {
-        child.className += " text-[var(--iris)] font-semibold";
-      } else if (isPast) {
-        child.className += " text-[var(--text)] opacity-50";
-      } else if (isFuture) {
-        child.className += " text-[var(--text)] opacity-30";
-      }
+      if (isActive) child.className += " text-[var(--iris)] font-semibold";
+      else if (isPast) child.className += " text-[var(--text)] opacity-50";
+      else child.className += " text-[var(--text)] opacity-30";
     });
   } else {
-    const lyricsHTML = currentLyrics
+    lyricsDisplay.innerHTML = currentLyrics
       .map((line, index) => {
         const isActive = index === currentLineIndex;
         const isPast = index < currentLineIndex;
-        const isFuture = index > currentLineIndex;
-
-        let className = "text-sm transition-all duration-300 py-1";
-        if (isActive) {
-          className += " text-[var(--iris)] font-semibold";
-        } else if (isPast) {
-          className += " text-[var(--text)] opacity-50";
-        } else if (isFuture) {
-          className += " text-[var(--text)] opacity-30";
-        }
-
-        return `<div class="${className}">${sanitizeText(line.text)}</div>`;
+        let cls = "text-sm transition-all duration-300 py-1";
+        if (isActive) cls += " text-[var(--iris)] font-semibold";
+        else if (isPast) cls += " text-[var(--text)] opacity-50";
+        else cls += " text-[var(--text)] opacity-30";
+        return `<div class="${cls}">${sanitizeText(line.text)}</div>`;
       })
       .join("");
-    lyricsDisplay.innerHTML = lyricsHTML;
   }
 
   if (lyricsToggleText) {
@@ -575,13 +550,10 @@ function updateLyricsDisplay() {
   }
 
   if (currentLineIndex >= 0 && currentLineIndex < currentLyrics.length - 1) {
-    const currentLineElement = lyricsDisplay.children[currentLineIndex];
-    if (currentLineElement) {
-      currentLineElement.scrollIntoView({
-        behavior: "smooth",
-        block: "center",
-      });
-    }
+    lyricsDisplay.children[currentLineIndex]?.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+    });
   }
 
   if (
@@ -590,17 +562,15 @@ function updateLyricsDisplay() {
   ) {
     setTimeout(() => {
       lyricsReplayOffset = null;
-      if (replayButton) {
-        replayButton.classList.remove(CONFIG.CLASSES.HIDDEN);
-      }
+      replayButton?.classList.remove(CONFIG.CLASSES.HIDDEN);
     }, 2000);
   }
 }
 
 function createActivityCard(activity) {
   const activityId =
-    activity.name === "Spotify"
-      ? `spotify-${activity.timestamps?.start || Date.now()}`
+    activity.name === "Last.fm"
+      ? `lastfm-${activity.timestamps?.start || Date.now()}`
       : `activity-${Date.now()}`;
 
   const card = document.createElement("div");
@@ -611,28 +581,23 @@ function createActivityCard(activity) {
   const mainContent = document.createElement("div");
   mainContent.className = "flex items-center space-x-3 relative";
 
-  const icon = createActivityIcon(activity);
-  const content = createActivityContent(activity);
+  mainContent.appendChild(createActivityIcon(activity));
+  mainContent.appendChild(createActivityContent(activity));
 
-  mainContent.appendChild(icon);
-  mainContent.appendChild(content);
-
-  if (activity.name === "Spotify") {
-    const replayButton = createReplayButton(activityId);
-    mainContent.appendChild(replayButton);
+  if (activity.name === "Last.fm") {
+    mainContent.appendChild(createReplayButton(activityId));
   }
 
   card.appendChild(mainContent);
 
-  if (activity.name === "Spotify") {
-    const lyricsToggle = createLyricsToggle(activityId);
-    const lyricsContainer = createLyricsContainer(activityId);
-    card.appendChild(lyricsToggle);
-    card.appendChild(lyricsContainer);
+  if (activity.name === "Last.fm") {
+    card.appendChild(createLyricsToggle(activityId));
+    card.appendChild(createLyricsContainer(activityId));
   }
 
   return card;
 }
+
 function createLyricsToggle(activityId) {
   const toggleContainer = document.createElement("div");
   toggleContainer.id = `lyrics-toggle-${activityId}`;
@@ -688,16 +653,14 @@ function createLyricsToggle(activityId) {
 function replayLyrics(activityId) {
   lyricsReplayOffset = Date.now();
   const lyricsDisplay = document.getElementById(`lyrics-display-${activityId}`);
-  if (lyricsDisplay) {
-    lyricsDisplay.scrollTop = 0;
-  }
+  if (lyricsDisplay) lyricsDisplay.scrollTop = 0;
 }
 
 function createActivityIcon(activity) {
   const icon = document.createElement("img");
   icon.className = "sm:size-24 size-16 rounded-lg";
   icon.style.display = "none";
-  icon.setAttribute("alt", `${activity.name} icon`);
+  icon.setAttribute("alt", `${activity.name} album art`);
 
   if (activity.assets?.large_image) {
     icon.src = activity.assets.large_image;
@@ -719,20 +682,26 @@ function createActivityContent(activity) {
   name.textContent = sanitizeText(activity.name);
   content.appendChild(name);
 
-  if (activity.name === "Spotify" && activity.sync_id) {
-    const trackLink = document.createElement("a");
-    trackLink.href = `https://open.spotify.com/track/${activity.sync_id}`;
-    trackLink.target = "_blank";
-    trackLink.rel = "noopener noreferrer";
-    trackLink.className =
-      "text-sm font-medium text-[var(--iris)] hover:underline focus:underline focus:outline-none";
-    trackLink.textContent =
-      sanitizeText(activity.details) || "Listen on Spotify";
-    trackLink.setAttribute(
-      "aria-label",
-      `Listen to ${activity.details} on Spotify`,
-    );
-    content.appendChild(trackLink);
+  if (activity.name === "Last.fm" && activity.details) {
+    if (activity.track_url) {
+      const trackLink = document.createElement("a");
+      trackLink.href = activity.track_url;
+      trackLink.target = "_blank";
+      trackLink.rel = "noopener noreferrer";
+      trackLink.className =
+        "text-sm font-medium text-[var(--iris)] hover:underline focus:underline focus:outline-none";
+      trackLink.textContent = sanitizeText(activity.details);
+      trackLink.setAttribute(
+        "aria-label",
+        `Listen to ${activity.details} on Last.fm`,
+      );
+      content.appendChild(trackLink);
+    } else {
+      const details = document.createElement("p");
+      details.className = "text-sm text-[var(--iris)]";
+      details.textContent = sanitizeText(activity.details);
+      content.appendChild(details);
+    }
   } else if (activity.details) {
     const details = document.createElement("p");
     details.className = "text-sm text-[var(--iris)]";
@@ -747,12 +716,19 @@ function createActivityContent(activity) {
     content.appendChild(state);
   }
 
+  if (activity.album) {
+    const album = document.createElement("p");
+    album.className = "text-xs text-[var(--subtle)] opacity-70";
+    album.textContent = sanitizeText(activity.album);
+    content.appendChild(album);
+  }
+
   if (activity.timestamps?.start) {
     const time = document.createElement("p");
     time.className = "text-xs text-[var(--text)] opacity-60 mt-1";
     time.setAttribute("data-start", activity.timestamps.start);
     if (activity.is_offline) {
-      time.textContent = `Active ${formatElapsedTime(activity.timestamps.start)} ago.`;
+      time.textContent = `Scrobbled ${formatElapsedTime(activity.timestamps.start, true, activity.timestamps.end)} ago.`;
     }
     content.appendChild(time);
   }
@@ -772,18 +748,14 @@ function createReplayButton(activityId) {
       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
     </svg>
   `;
-
-  replayButton.addEventListener("click", () => {
-    replayLyrics(activityId);
-  });
-
+  replayButton.addEventListener("click", () => replayLyrics(activityId));
   return replayButton;
 }
 
 function startElapsedTimeUpdates(isOffline = false) {
-  const existingInterval = intervals.find((i) => i.type === "elapsed");
-  if (existingInterval) {
-    clearInterval(existingInterval.id);
+  const existing = intervals.find((i) => i.type === "elapsed");
+  if (existing) {
+    clearInterval(existing.id);
     intervals = intervals.filter((i) => i.type !== "elapsed");
   }
 
@@ -793,7 +765,7 @@ function startElapsedTimeUpdates(isOffline = false) {
       document.querySelectorAll("[data-start]").forEach((el) => {
         const start = parseInt(el.getAttribute("data-start"));
         if (start && !isOffline) {
-          el.textContent = `Active for ${formatElapsedTime(start)}`;
+          el.textContent = `Scrobbling for ${formatElapsedTime(start)}`;
         }
       });
       lastUpdate = timestamp;
@@ -803,4 +775,87 @@ function startElapsedTimeUpdates(isOffline = false) {
 
   requestAnimationFrame(update);
   intervals.push({ type: "elapsed", id: null });
+}
+
+// Ambient Art Background
+
+let _ambientEl = null;
+let _ambientCurrentUrl = null;
+
+function initAmbientArt() {
+  if (_ambientEl) return;
+
+  _ambientEl = document.createElement("div");
+  _ambientEl.id = "ambient-art";
+  _ambientEl.setAttribute("aria-hidden", "true");
+
+  const vignette = document.createElement("div");
+  vignette.id = "ambient-art-vignette";
+  vignette.setAttribute("aria-hidden", "true");
+
+  document.body.prepend(vignette);
+  document.body.prepend(_ambientEl);
+}
+
+function updateAmbientArt(url) {
+  if (!_ambientEl) initAmbientArt();
+  if (!url || url === _ambientCurrentUrl) return;
+
+  _ambientCurrentUrl = url;
+
+  const img = new Image();
+  img.crossOrigin = "anonymous";
+  img.onload = () => _crossfadeAmbient(url);
+  img.onerror = () => _clearAmbient();
+  img.src = url;
+}
+
+function _crossfadeAmbient(url) {
+  if (!_ambientEl) return;
+
+  _ambientEl.style.setProperty("--next-art", `url("${url}")`);
+
+  const key = url.replace(/\W+/g, "_").slice(-40);
+  const styleId = `ambient-keyframe-${key}`;
+
+  if (!document.getElementById(styleId)) {
+    const s = document.createElement("style");
+    s.id = styleId;
+    s.textContent = `
+      #ambient-art.art-${key}::after {
+        background-image: url("${url}");
+      }
+    `;
+    document.head.appendChild(s);
+  }
+
+  const oldClasses = [..._ambientEl.classList].filter((c) =>
+    c.startsWith("art-"),
+  );
+  _ambientEl.classList.remove(...oldClasses, "transitioning");
+
+  void _ambientEl.offsetWidth;
+
+  _ambientEl.classList.add(`art-${key}`, "transitioning");
+  _ambientEl.style.opacity = "1";
+
+  setTimeout(() => {
+    const s2 = document.createElement("style");
+    const s2id = `ambient-settle-${key}`;
+    if (!document.getElementById(s2id)) {
+      s2.id = s2id;
+      s2.textContent = `
+        #ambient-art.art-${key}::before {
+          background-image: url("${url}");
+        }
+      `;
+      document.head.appendChild(s2);
+    }
+    _ambientEl.classList.remove("transitioning");
+  }, 1500);
+}
+
+function _clearAmbient() {
+  if (_ambientEl) _ambientEl.style.opacity = "0";
+  _ambientCurrentUrl = null;
 }
