@@ -9,5 +9,3 @@ export async function getRandomQuote() {
   const quote = cachedQuotes[Math.floor(Math.random() * cachedQuotes.length)];
   return quote;
 }
-
-
