@@ -167,7 +167,7 @@ function formatElapsedTime(
 function showLoadingState() {
   const statusBadge = document.getElementById(CONFIG.DOM_IDS.STATUS_BADGE);
   if (statusBadge) {
-    statusBadge.style.backgroundColor = "var(--text)";
+    statusBadge.style.backgroundColor = "var(--idle)";
     statusBadge.style.opacity = "0.5";
     statusBadge.setAttribute("title", "Connecting to Sync Server...");
   }
