@@ -4,5 +4,5 @@
 
 ## Ideas
 
-- [ ] Guestbook
+- [x] Guestbook
 - [x] Use Websockets for live updates
