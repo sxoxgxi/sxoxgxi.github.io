@@ -1,102 +1,73 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Guestbook | Nirmal</title>
 
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="styles/global.css" />
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Guestbook - Nirmal</title>
 
-    <style>
-      .message-card {
-        transition: all 0.2s ease;
-      }
-      .message-card:hover {
-        transform: translateY(-2px);
-        border-color: var(--foam);
-      }
-    </style>
-  </head>
-  <body
-    class="min-h-screen bg-[var(--base)] text-[var(--text)] font-system-ui leading-relaxed"
-  >
-    <div class="mx-auto max-w-2xl px-4 py-12 sm:px-6">
-      <a
-        href="/"
-        class="inline-flex items-center text-[var(--muted)] hover:text-[var(--text)] transition-colors mb-8"
-      >
-        ← Back to home
-      </a>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="styles/global.css" />
 
-      <h1 class="text-4xl font-bold text-[var(--iris)] mb-2">Guestbook</h1>
-      <p class="text-[var(--muted)] mb-10">
-        Leave a note if you feel like it. No pressure.
-      </p>
+  <style>
+    .message-card {
+      transition: all 0.2s ease;
+    }
 
-      <!-- Form -->
-      <div
-        class="bg-[var(--surface)] border border-[var(--overlay)] rounded-xl p-6 mb-12"
-      >
-        <form id="guestbookForm" class="space-y-6">
-          <div>
-            <label class="block text-[var(--muted)] text-sm mb-2"
-              >Your name</label
-            >
-            <input
-              type="text"
-              id="name"
-              required
-              maxlength="50"
-              class="w-full bg-[var(--overlay)] border border-[var(--overlay)] focus:border-[var(--foam)] rounded-lg px-4 py-3 text-[var(--text)] outline-none transition-colors"
-              placeholder="how should I call you?"
-            />
+    .message-card:hover {
+      transform: translateY(-2px);
+      border-color: var(--foam);
+    }
+  </style>
+</head>
+
+<body class="min-h-screen bg-[var(--base)] text-[var(--text)] font-system-ui leading-relaxed">
+  <div class="mx-auto max-w-2xl px-4 py-12 sm:px-6">
+    <a href="/" class="inline-flex items-center text-[var(--muted)] hover:text-[var(--text)] transition-colors mb-8">
+      ← Back to home
+    </a>
+
+    <h1 class="text-4xl font-bold text-[var(--iris)] mb-2">Guestbook</h1>
+    <p class="text-[var(--muted)] mb-10">
+      Leave a note if you feel like it. No pressure.
+    </p>
+
+    <!-- Form -->
+    <div class="bg-[var(--surface)] border border-[var(--overlay)] rounded-xl p-6 mb-12">
+      <form id="guestbookForm" class="space-y-6">
+        <div>
+          <label class="block text-[var(--muted)] text-sm mb-2">Your name</label>
+          <input type="text" id="name" required maxlength="50"
+            class="w-full bg-[var(--overlay)] border border-[var(--overlay)] focus:border-[var(--foam)] rounded-lg px-4 py-3 text-[var(--text)] outline-none transition-colors"
+            placeholder="how should I call you?" />
+        </div>
+
+        <div>
+          <div class="flex justify-between items-center mb-2">
+            <label class="block text-[var(--muted)] text-sm">Your message</label>
+            <span id="charCount" class="text-xs text-[var(--muted)]">0 / 500</span>
           </div>
+          <textarea id="message" required rows="4" maxlength="500"
+            class="w-full bg-[var(--overlay)] border border-[var(--overlay)] focus:border-[var(--foam)] rounded-lg px-4 py-3 text-[var(--text)] outline-none resize-y transition-colors"
+            placeholder="anything you wanna say maybe?"></textarea>
+        </div>
 
-          <div>
-            <div class="flex justify-between items-center mb-2">
-              <label class="block text-[var(--muted)] text-sm"
-                >Your message</label
-              >
-              <span id="charCount" class="text-xs text-[var(--muted)]"
-                >0 / 500</span
-              >
-            </div>
-            <textarea
-              id="message"
-              required
-              rows="4"
-              maxlength="500"
-              class="w-full bg-[var(--overlay)] border border-[var(--overlay)] focus:border-[var(--foam)] rounded-lg px-4 py-3 text-[var(--text)] outline-none resize-y transition-colors"
-              placeholder="anything you wanna say maybe?"
-            ></textarea>
-          </div>
+        <input type="text" name="website" id="website" style="display: none" tabindex="-1" autocomplete="off" />
 
-          <input
-            type="text"
-            name="website"
-            id="website"
-            style="display: none"
-            tabindex="-1"
-            autocomplete="off"
-          />
-
-          <button
-            type="submit"
-            id="submitBtn"
-            class="w-full bg-[var(--iris)] hover:bg-[var(--pine)] text-white font-medium py-3.5 rounded-lg transition-colors duration-200 flex items-center justify-center gap-2"
-          >
-            <span id="btnText">Send message</span>
-          </button>
-        </form>
-      </div>
-
-      <div id="messages" class="space-y-6"></div>
-      <p class="text-center text-[var(--muted)] text-sm mt-12">
-        Messages are stored and I get notified when you leave one.
-      </p>
+        <button type="submit" id="submitBtn"
+          class="w-full bg-[var(--iris)] hover:bg-[var(--pine)] text-white font-medium py-3.5 rounded-lg transition-colors duration-200 flex items-center justify-center gap-2">
+          <span id="btnText">Send message</span>
+        </button>
+      </form>
     </div>
 
-    <script src="scripts/gb.js"></script>
-  </body>
+    <div id="messages" class="space-y-6"></div>
+    <p class="text-center text-[var(--muted)] text-sm mt-12">
+      Messages are stored and I get notified when you leave one.
+    </p>
+  </div>
+
+  <script src="scripts/gb.js"></script>
+</body>
+
 </html>

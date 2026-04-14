@@ -1,52 +1,45 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Wallpapers That I Use</title>
-    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
-    <meta name="theme-color" content="#191724" />
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="preconnect" href="https://raw.githubusercontent.com" />
-    <link rel="stylesheet" href="styles/global.css" />
-  </head>
-  <body class="min-h-screen flex flex-col items-center p-2 sm:p-4">
-    <header class="w-full mb-6 text-center">
-      <h1 class="text-2xl sm:text-3xl font-bold text-[var(--gold)]">
-        Wallpaper Collection
-      </h1>
-      <div
-        id="spinner"
-        class="fixed inset-0 flex items-center justify-center bg-black/50 z-50"
-      >
-        <div
-          class="animate-spin rounded-full h-12 w-12 border-4 border-t-transparent border-[var(--pine)]"
-        ></div>
-      </div>
-    </header>
-    <main
-      class="w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6"
-    ></main>
 
-    <footer
-      class="p-4 text-center text-sm text-[var(--foam)] mt-8 bg-[var(--background)]"
-    >
-      <p class="text-xs sm:text-sm text-[var(--iris)] mb-2" id="last-updated">
-        Fetching data...
-      </p>
-      <p>
-        Some images are not mine and are credited to their respective owners
-        (CTTO). If you are an owner and would like your image removed or
-        credited differently, please contact me.
-      </p>
-    </footer>
-    <script src="scripts/walls.js"></script>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Wallpapers That I Use</title>
+  <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+  <meta name="theme-color" content="#191724" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://raw.githubusercontent.com" />
+  <link rel="stylesheet" href="styles/global.css" />
+</head>
 
-    <footer
-      id="footer"
-      class="fixed bottom-6 left-1/2 -translate-x-1/2 card shadow-lg mb-2 bg-[var(--surface)] rounded-xl p-2 px-4 inline-flex items-center space-x-4 text-[var(--text)]"
-    ></footer>
+<body class="min-h-screen flex flex-col items-center p-2 sm:p-4">
+  <header class="w-full mb-6 text-center">
+    <h1 class="text-2xl sm:text-3xl font-bold text-[var(--gold)]">
+      Wallpaper Collection
+    </h1>
+    <div id="spinner" class="fixed inset-0 flex items-center justify-center bg-black/50 z-50">
+      <div class="animate-spin rounded-full h-12 w-12 border-4 border-t-transparent border-[var(--pine)]"></div>
+    </div>
+  </header>
+  <main class="w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6"></main>
 
-    <script src="https://syncroom.sxoxgxi.workers.dev/footer.js"></script>
-  </body>
+  <footer class="p-4 text-center text-sm text-[var(--foam)] mt-8 bg-[var(--background)]">
+    <p class="text-xs sm:text-sm text-[var(--iris)] mb-2" id="last-updated">
+      Fetching data...
+    </p>
+    <p>
+      Some images are not mine and are credited to their respective owners
+      (CTTO). If you are an owner and would like your image removed or
+      credited differently, please contact me.
+    </p>
+  </footer>
+  <script src="scripts/walls.js"></script>
+
+  <footer id="footer"
+    class="fixed bottom-6 left-1/2 -translate-x-1/2 card shadow-lg mb-2 bg-[var(--surface)] rounded-xl p-2 px-4 inline-flex items-center space-x-4 text-[var(--text)]">
+  </footer>
+
+  <script src="https://syncroom.sxoxgxi.workers.dev/footer.js"></script>
+</body>
+
 </html>
