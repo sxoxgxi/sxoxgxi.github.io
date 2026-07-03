@@ -12,6 +12,7 @@ const CONFIG = {
     ACTIVITIES_CONTAINER: "activities-container",
     PRESENCE_SECTION: "presence-section",
     ACTIVITIES_LIST: "activities-list",
+    ACTIVITIES_LABEL: "activity-label",
     PLATFORM_INFO: "platform-info",
   },
   CLASSES: {
@@ -175,7 +176,9 @@ function showLoadingState() {
 
 function hideLoadingState() {
   const statusBadge = document.getElementById(CONFIG.DOM_IDS.STATUS_BADGE);
-  if (statusBadge) {
+  const activitiesLabel = document.getElementById(CONFIG.DOM_IDS.ACTIVITIES_LABEL);
+  if (statusBadge && activitiesLabel) {
+    activitiesLabel.textContent = "Last Presence";
     statusBadge.style.opacity = "1";
   }
 }
